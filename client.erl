@@ -6,7 +6,8 @@
 -record(client_st, {
     gui, % atom of the GUI process
     nick, % nick/username of the client
-    server % atom of the chat server
+    server, % atom of the chat server
+    channel % atom of the channel joined
 }).
 
 % Return an initial state record. This is called from GUI.
@@ -29,8 +30,8 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 % Join channel
 handle(St, {join, Channel}) ->
     % TODO: Implement this function
-    % {reply, ok, St} ;
-    {reply, {error, not_implemented, "join not implemented"}, St} ;
+    {reply, ok, St} ;
+    % {reply, {error, not_implemented, "join not implemented"}, St} ;
 
 % Leave channel
 handle(St, {leave, Channel}) ->
