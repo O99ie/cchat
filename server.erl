@@ -7,12 +7,12 @@
     channels
 }).
 
-% Initial state with one nick and one channel
-initial_state(ServerAtom, Nick, Channel) ->
+% Initial state with no nicks and no channels
+initial_state(ServerAtom) ->
     #server_st{
         server = ServerAtom,
-        nicks = [Nick],
-        channels = [Channel]
+        nicks = [],
+        channels = []
     }.
 
 % Start a new server process with the given name
@@ -22,13 +22,10 @@ start(ServerAtom) ->
     % - Spawn a new process which waits for a message, handles it, then loops infinitely
     % - Register this process to ServerAtom
     % - Return the process ID
-    start(ServerAtom, nick, channel).
-    
-
-start(ServerAtom, Nick, Channel) ->
-    S = initial_state(ServerAtom, Nick, Channel),
+    S = initial_state(ServerAtom),
     genserver:start(ServerAtom, S, fun server:server/2).
 
+% Initiates and manages the channels.
 server(St, {_, Channel}) ->
     {reply, ok, St}.
     

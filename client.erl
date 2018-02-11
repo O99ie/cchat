@@ -30,7 +30,7 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 % Join channel
 handle(St, {join, Channel}) ->
     % TODO: Implement this function
-    {reply, ok, St} ;
+    {reply, ok, St#client_st{channel = Channel}} ;
     % {reply, {error, not_implemented, "join not implemented"}, St} ;
 
 % Leave channel
