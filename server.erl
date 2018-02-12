@@ -49,8 +49,13 @@ server(St, {join, Pid, Channel}) ->
 
 server(St, {leave, Pid, Channel}) ->
     CH = list_to_atom(Channel),
-    genserver:request(CH, {leave, Pid}), % Kolla om kanalen finns först
-    {reply, ok, St}.
+    case lists:member(Channel, St#server_st.channels) of
+        true  ->
+            genserver:request(CH, {leave, Pid}),
+            {reply, ok, St};
+        false -> 
+            {reply, ok, St}
+    end.
     
 
 % Handles the activty on the channels
