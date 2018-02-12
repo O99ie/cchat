@@ -7,7 +7,8 @@
     gui, % atom of the GUI process
     nick, % nick/username of the client
     server, % atom of the chat server
-    channel % atom of the channel joined
+    channels, % atom of the channel joined
+    pid % pid of client process
 }).
 
 % Return an initial state record. This is called from GUI.
@@ -16,7 +17,9 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
     #client_st{
         gui = GUIAtom,
         nick = Nick,
-        server = ServerAtom
+        server = ServerAtom,
+        channels = [],
+        pid = self()
     }.
 
 % handle/2 handles each kind of request from GUI
@@ -30,14 +33,19 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 % Join channel
 handle(St, {join, Channel}) ->
     % TODO: Implement this function
-    {reply, ok, St#client_st{channel = Channel}} ;
+    case genserver:request(St#client_st.server, {join, St#client_st.pid, Channel}) of
+        ok -> {reply, ok, St#client_st{channels = [Channel | St#client_st.channels]}};
+        _  -> {reply, {error, error, "Error in join"}, St}
+    end;
+        
     % {reply, {error, not_implemented, "join not implemented"}, St} ;
 
 % Leave channel
 handle(St, {leave, Channel}) ->
     % TODO: Implement this function
-    % {reply, ok, St} ;
-    {reply, {error, not_implemented, "leave not implemented"}, St} ;
+    genserver:request(St#client_st.server, {leave, St#client_st.pid, Channel}),
+    {reply, ok, St#client_st{channels = lists:delete(Channel, St#client_st.channels)}} ;
+    
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Msg}) ->
