@@ -30,28 +30,42 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 %   - Data is what is sent to GUI, either the atom `ok` or a tuple {error, Atom, "Error message"}
 %   - NewState is the updated state of the client
 
-% Join channel
+% Join channel. Starts a genserver loop that listens for incomming messages.
 handle(St, {join, Channel}) ->
-    % TODO: Implement this function
     case genserver:request(St#client_st.server, {join, St#client_st.pid, Channel}) of
-        ok -> {reply, ok, St#client_st{channels = [Channel | St#client_st.channels]}};
+        ok ->
+            ClientAtom = list_to_atom(pid_to_list(self())),
+            S = St#client_st{channels = [Channel | St#client_st.channels]},
+            genserver:start(ClientAtom, S, fun handleHelp/2),
+            {reply, ok, S};
         _  -> {reply, {error, error, "Error in join"}, St}
     end;
-        
-    % {reply, {error, not_implemented, "join not implemented"}, St} ;
 
 % Leave channel
 handle(St, {leave, Channel}) ->
-    % TODO: Implement this function
-    genserver:request(St#client_st.server, {leave, St#client_st.pid, Channel}),
-    {reply, ok, St#client_st{channels = lists:delete(Channel, St#client_st.channels)}} ;
+    case lists:member(Channel, St#client_st.channels) of
+        true ->
+            genserver:request(St#client_st.server, {leave, self(), Channel}),
+            {reply, ok, St#client_st{channels = lists:delete(Channel, St#client_st.channels)}};
+        false ->
+            {error, user_not_joined, "User has not joined the channel they are trying to leave"}
+    end;
     
 
 % Sending message (from GUI, to channel)
 handle(St, {message_send, Channel, Msg}) ->
     % TODO: Implement this function
     % {reply, ok, St} ;
-    {reply, {error, not_implemented, "message sending not implemented"}, St} ;
+    case lists:member(Channel, St#client_st.channels) of
+        true ->
+            genserver:request(St#client_st.server,
+                {message_send, self(), St#client_st.nick, Channel, Msg}),
+            {reply, ok, St};
+        false ->
+            {error, user_not_joined,
+            "User has not joined the channel they are trying to message"}
+    end;
+            
 
 % ---------------------------------------------------------------------------
 % The cases below do not need to be changed...
@@ -78,3 +92,7 @@ handle(St, quit) ->
 % Catch-all for any unhandled requests
 handle(St, Data) ->
     {reply, {error, not_implemented, "Client does not handle this command"}, St} .
+
+% Helper function for message listening
+handleHelp(St, {message_receive, Channel, Nick, Msg}) ->
+    handle(St, {message_receive, Channel, Nick, Msg}).
