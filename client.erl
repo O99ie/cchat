@@ -18,8 +18,7 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
         gui = GUIAtom,
         nick = Nick,
         server = ServerAtom,
-        channels = [],
-        pid = self()
+        channels = []
     }.
 
 % handle/2 handles each kind of request from GUI
@@ -32,13 +31,20 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel. Starts a genserver loop that listens for incomming messages.
 handle(St, {join, Channel}) ->
-    case genserver:request(St#client_st.server, {join, St#client_st.pid, Channel}) of
-        ok ->
-            ClientAtom = list_to_atom(pid_to_list(self())),
-            S = St#client_st{channels = [Channel | St#client_st.channels]},
-            genserver:start(ClientAtom, S, fun handleHelp/2),
-            {reply, ok, S};
-        _  -> {reply, {error, error, "Error in join"}, St}
+    case whereis(St#client_st.server) of
+        undefined -> {error, server_not_reached, "Server not reached"};
+        _ ->
+            case lists:member(Channel, St#client_st.channels) of
+                false ->
+                    genserver:request(St#client_st.server, {join, self(), Channel}),
+                    ClientAtom = list_to_atom(pid_to_list(self())),
+                    S = St#client_st{channels = [Channel | St#client_st.channels]},
+                    NewPid = genserver:start(ClientAtom, S, fun handleHelp/2),
+                    io:fwrite("Pid "++pid_to_list(self())++" has listener: "++pid_to_list(NewPid)++"~n"),
+                    {reply, ok, S};
+                true ->
+                    {error, user_already_joined, "User already joined to channel"}
+            end
     end;
 
 % Leave channel
@@ -58,7 +64,8 @@ handle(St, {message_send, Channel, Msg}) ->
     % {reply, ok, St} ;
     case lists:member(Channel, St#client_st.channels) of
         true ->
-            genserver:request(St#client_st.server,
+            CH = list_to_atom(Channel),
+            genserver:request(CH,
                 {message_send, self(), St#client_st.nick, Channel, Msg}),
             {reply, ok, St};
         false ->

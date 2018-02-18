@@ -17,10 +17,10 @@ server_initial_state(ServerAtom) ->
         server = ServerAtom,
         channels = []
     }.
-channel_initial_state(ChannelAtom, PidAtom) -> 
+channel_initial_state(ChannelAtom) -> 
     #channel_st{
         channel = ChannelAtom, 
-        pids  = [PidAtom]
+        pids  = []
     }.
 
 % Start a new server process with the given name
@@ -37,10 +37,12 @@ start(ServerAtom) ->
 % Join channel.
 server(St, {join, Pid, Channel}) ->
     CH = list_to_atom(Channel),
-    case lists:member(Channel, St#server_st.channels) of
+    case lists:member(CH, St#server_st.channels) of
         false ->
-            S  = channel_initial_state(Channel, Pid),
-            genserver:start(CH, S, fun server:channel/2),
+            io:fwrite(pid_to_list(Pid)++" is joining channel "++Channel),   %DEBUG
+            S  = channel_initial_state(Channel),
+            io:fwrite(pid_to_list(genserver:start(CH, S, fun server:channel/2))++" is a new channel"),
+            genserver:request(CH, {join, Pid}),
             {reply, ok, St#server_st{channels = [CH | St#server_st.channels]}};
         true ->
             case genserver:request(CH, {join, Pid}) of
@@ -52,19 +54,17 @@ server(St, {join, Pid, Channel}) ->
 server(St, {leave, Pid, Channel}) ->
     CH = list_to_atom(Channel),
     genserver:request(CH, {leave, Pid}),
-    {reply, ok, St};
-
-% Receive message from client
-server(St, {message_send, Pid, Nick, Channel, Msg}) ->
-    CH = list_to_atom(Channel),
-    genserver:request(CH, {message_send, Pid, Nick, Msg}),
     {reply, ok, St}.
 
 
 % Handles the activty on the channels.
 % Joins channel.
 channel(St, {join, Pid}) ->
-    {reply, ok, St#channel_st{pids = [Pid | St#channel_st.pids]}};
+    Pids = St#channel_st.pids,
+    S = St#channel_st{pids = [Pid | Pids]},
+    io:fwrite("All pids joined to channel "++S#channel_st.channel++":~n"), %DEBUG
+    [io:fwrite(pid_to_list(X)++"~n") || X <- S#channel_st.pids],   %DEBUG
+    {reply, ok, S};
 
 % Leaves channel.
 channel(St, {leave, Pid}) ->
@@ -76,13 +76,23 @@ channel(St, {leave, Pid}) ->
 
 channel(St, {message_send, Pid, Nick, Msg}) ->
     %whereis(Pid),
-    genserver:request((list_to_atom(pid_to_list(hd(St#channel_st.pids)))), {message_receive, St#channel_st.channel, Nick, Msg}),
+    %genserver:request((list_to_atom(pid_to_list(hd(St#channel_st.pids)))), {message_receive, St#channel_st.channel, Nick, Msg}),
     
     
     %[genserver:request(list_to_atom(pid_to_list(P)),
-    % {message_receive, St#channel_st.channel, Nick, Msg})
+    %{message_receive, St#channel_st.channel, Nick, Msg})
     %    || P <- St#channel_st.pids, P =/= Pid],
+    
+    Ls = lists:delete(Pid, St#channel_st.pids),
+
+    [genserver:request(p2a(X), msg(St, Nick, Msg)) || X <- Ls],
+    
     {reply, ok, St}.
+
+p2l(X) -> pid_to_list(X).
+l2a(X) -> list_to_atom(X).
+p2a(X) -> l2a(p2l(X)).
+msg(St, Nick, Msg) -> {message_receive, St#channel_st.channel, Nick, Msg}.
     
 
 % Stop the server process registered to the given name,
