@@ -32,7 +32,7 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 % Join channel. Starts a genserver loop that listens for incomming messages.
 handle(St, {join, Channel}) ->
     case whereis(St#client_st.server) of
-        undefined -> {error, server_not_reached, "Server not reached"};
+        undefined -> {reply, {error, server_not_reached, "Server not reached"}, St};
         _ ->
             case lists:member(Channel, St#client_st.channels) of
                 false ->
@@ -43,7 +43,7 @@ handle(St, {join, Channel}) ->
                     io:fwrite("Pid "++pid_to_list(self())++" has listener: "++pid_to_list(NewPid)++"~n"),
                     {reply, ok, S};
                 true ->
-                    {error, user_already_joined, "User already joined to channel"}
+                    {reply, {error, user_already_joined, "User already joined to channel"}, St}
             end
     end;
 
@@ -54,7 +54,7 @@ handle(St, {leave, Channel}) ->
             genserver:request(St#client_st.server, {leave, self(), Channel}),
             {reply, ok, St#client_st{channels = lists:delete(Channel, St#client_st.channels)}};
         false ->
-            {error, user_not_joined, "User has not joined the channel they are trying to leave"}
+            {reply, {error, user_not_joined, "User has not joined the channel they are trying to leave"}, St}
     end;
     
 
@@ -66,11 +66,11 @@ handle(St, {message_send, Channel, Msg}) ->
         true ->
             CH = list_to_atom(Channel),
             genserver:request(CH,
-                {message_send, self(), St#client_st.nick, Channel, Msg}),
+                {message_send, self(), St#client_st.nick, Msg}),
             {reply, ok, St};
         false ->
-            {error, user_not_joined,
-            "User has not joined the channel they are trying to message"}
+            {reply, {error, user_not_joined,
+            "User has not joined the channel they are trying to message"}, St}
     end;
             
 

@@ -39,11 +39,11 @@ server(St, {join, Pid, Channel}) ->
     CH = list_to_atom(Channel),
     case lists:member(CH, St#server_st.channels) of
         false ->
-            io:fwrite(pid_to_list(Pid)++" is joining channel "++Channel),   %DEBUG
-            S  = channel_initial_state(Channel),
-            io:fwrite(pid_to_list(genserver:start(CH, S, fun server:channel/2))++" is a new channel"),
+            S  = channel_initial_state(CH),
+            genserver:start(CH, S, fun server:channel/2),
             genserver:request(CH, {join, Pid}),
-            {reply, ok, St#server_st{channels = [CH | St#server_st.channels]}};
+            NewChannels = [CH | St#server_st.channels],
+            {reply, ok, St#server_st{channels = NewChannels}};
         true ->
             case genserver:request(CH, {join, Pid}) of
                 ok -> {reply, ok, St}
@@ -56,15 +56,11 @@ server(St, {leave, Pid, Channel}) ->
     genserver:request(CH, {leave, Pid}),
     {reply, ok, St}.
 
-
 % Handles the activty on the channels.
 % Joins channel.
 channel(St, {join, Pid}) ->
-    Pids = St#channel_st.pids,
-    S = St#channel_st{pids = [Pid | Pids]},
-    io:fwrite("All pids joined to channel "++S#channel_st.channel++":~n"), %DEBUG
-    [io:fwrite(pid_to_list(X)++"~n") || X <- S#channel_st.pids],   %DEBUG
-    {reply, ok, S};
+    NewPids = [Pid | St#channel_st.pids],
+    {reply, ok, St#channel_st{pids = NewPids}};
 
 % Leaves channel.
 channel(St, {leave, Pid}) ->
@@ -92,7 +88,7 @@ channel(St, {message_send, Pid, Nick, Msg}) ->
 p2l(X) -> pid_to_list(X).
 l2a(X) -> list_to_atom(X).
 p2a(X) -> l2a(p2l(X)).
-msg(St, Nick, Msg) -> {message_receive, St#channel_st.channel, Nick, Msg}.
+msg(St, Nick, Msg) -> {message_receive, atom_to_list(St#channel_st.channel), Nick, Msg}.
     
 
 % Stop the server process registered to the given name,
