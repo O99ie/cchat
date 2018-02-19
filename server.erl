@@ -62,9 +62,9 @@ channel(St, {leave, Pid}) ->
         {reply, ok, NewState};
 
 channel(St, {message_send, Pid, Nick, Msg}) ->
-    Ls = lists:delete(Pid, St#channel_st.pids),
+    Recipients = lists:delete(Pid, St#channel_st.pids),
     Reply = {message_receive, atom_to_list(St#channel_st.channel), Nick, Msg},
-    [genserver:request(p2a(X), Reply) || X <- Ls],
+    [genserver:request(p2a(X), Reply) || X <- Recipients],
     {reply, ok, St}.
 
 p2a(X) -> list_to_atom(pid_to_list(X)).
