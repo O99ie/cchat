@@ -41,7 +41,6 @@ handle(St, {join, Channel}) ->
                     ClientAtom = list_to_atom(pid_to_list(self())),	% ClientAtom: A unique atom associated with the client
                     NewState = St#client_st{channels = [Channel | St#client_st.channels]},
                     NewPid = genserver:start(ClientAtom, NewState, fun handleHelp/2),
-                    io:fwrite("Pid "++pid_to_list(self())++" has listener: "++pid_to_list(NewPid)++"~n"),
                     {reply, ok, NewState};
                 true ->
                     {reply, {error, user_already_joined, "User already joined to channel"}, St}
