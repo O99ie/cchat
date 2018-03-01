@@ -64,7 +64,7 @@ channel(St, {leave, Pid}) ->
 channel(St, {message_send, Pid, Nick, Msg}) ->
     Recipients = lists:delete(Pid, St#channel_st.pids),
     Reply = {message_receive, atom_to_list(St#channel_st.channel), Nick, Msg},
-    spawn(fun() -> [spawn((fun() -> genserver:request(p2a(X), Reply) end) || X <- Recipients] end),
+    spawn(fun() -> [spawn((fun() -> genserver:request(p2a(X), Reply) end)) || X <- Recipients] end),
     {reply, ok, St}.
 
 p2a(X) -> list_to_atom(pid_to_list(X)). 

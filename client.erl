@@ -31,20 +31,22 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel. Starts a genserver loop that listens for incomming messages.
 handle(St, {join, Channel}) ->
-    case whereis(St#client_st.server) of	% Check: Does the server exist?
-        undefined -> {reply, {error, server_not_reached, "Server not reached"}, St};
-        _ ->
+    %case whereis(St#client_st.server) of	% Check: Does the server exist?
+        %undefined -> {reply, {error, server_not_reached, "Server not reached"}, St}
+        %_ ->
             case lists:member(Channel, St#client_st.channels) of	% Check: Has the client already joined the channel?
                 false ->
-                    genserver:request(St#client_st.server, {join, self(), Channel}),
-
-                    ClientAtom = list_to_atom(pid_to_list(self())),	% ClientAtom: A unique atom associated with the client
-                    NewState = St#client_st{channels = [Channel | St#client_st.channels]},
-                    NewPid = genserver:start(ClientAtom, NewState, fun handleHelp/2),
-                    {reply, ok, NewState};
+                    try genserver:request(St#client_st.server, {join, self(), Channel}) of
+                        _ -> ClientAtom = list_to_atom(pid_to_list(self())),	% ClientAtom: A unique atom associated with the client
+                             NewState = St#client_st{channels = [Channel | St#client_st.channels]},
+                             NewPid = genserver:start(ClientAtom, NewState, fun handleHelp/2),
+                             {reply, ok, NewState}
+                    catch
+                        error:_ -> {reply, {error, server_not_reached, "Server not reached"}, St}
+                    end;
                 true ->
                     {reply, {error, user_already_joined, "User already joined to channel"}, St}
-            end
+            %end
     end;
 
 % Leave channel
