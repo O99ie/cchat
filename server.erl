@@ -30,17 +30,17 @@ start(ServerAtom) ->
 
 % "server" initiates and manages the channels.
 % Join channel.
-server(St, {join, Pid, Channel}) ->
+server(St, {join, InitNick, Channel}) ->
     ChannelAtom = list_to_atom(Channel),
     case lists:member(ChannelAtom, St#server_st.channels) of    % Check: Does the channel already exist?
         false ->
             S  = channel_initial_state(ChannelAtom),
             genserver:start(ChannelAtom, S, fun server:channel/2),
-            genserver:request(ChannelAtom, {join, Pid}),
+            genserver:request(ChannelAtom, {join, InitNick}),
             NewChannels = [ChannelAtom | St#server_st.channels],
             {reply, ok, St#server_st{channels = NewChannels}};
         true ->
-            genserver:request(ChannelAtom, {join, Pid}),
+            genserver:request(ChannelAtom, {join, InitNick}),
             {reply, ok, St}
     end;
 
@@ -64,13 +64,10 @@ channel(St, {leave, Pid}) ->
 channel(St, {message_send, Pid, Nick, Msg}) ->
     Recipients = lists:delete(Pid, St#channel_st.pids),
     Reply = {message_receive, atom_to_list(St#channel_st.channel), Nick, Msg},
-    spawn(fun() -> [spawn((fun() -> genserver:request(p2a(X), Reply) end)) || X <- Recipients] end),
+    spawn(fun() -> [spawn(fun() -> genserver:request(X, Reply) end) || X <- Recipients] end),
     {reply, ok, St}.
-
-p2a(X) -> list_to_atom(pid_to_list(X)). 
 
 % Stop the server process registered to the given name,
 % together with any other associated processes
 stop(ServerAtom) ->
     genserver:stop(ServerAtom).
-
