@@ -33,6 +33,11 @@ initial_state(Nick, GUIAtom, ServerAtom) ->
 
 % Join channel.
 handle(St, {join, Channel}) ->
+    case (whereis(St#client_st.initNick)) of  % If no listener loop is active, start one
+    undefined ->
+        genserver:start(St#client_st.initNick, St, fun handle/2);
+    _ -> true
+    end,
     case lists:member(Channel, St#client_st.channels) of	% Check: Has the client already joined the channel?
         false ->
             try genserver:request(St#client_st.server, {join, St#client_st.initNick, Channel}) of
